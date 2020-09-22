@@ -45,4 +45,12 @@ if __name__ == '__main__':
     config_path = '../config/settings.conf'
 
     dashboard = BallisticDashboard(config_file=config_path)
-    dashboard.start_dashboard()
+
+    try:
+        dashboard.start_dashboard()
+
+    except KeyboardInterrupt:
+        logger.info('Exit signal received.')
+
+    except Exception as e:
+        logger.exception(e)
