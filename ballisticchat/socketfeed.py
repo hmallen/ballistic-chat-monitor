@@ -1,23 +1,21 @@
+import datetime
 import json
 import logging
 from pprint import pprint
 import sys
-
-import datetime
 import time
 
 import asyncio
 import socketio
+
 from pymongo import MongoClient
 from numpyencoder import NumpyEncoder
 
 # Setup Logging
 logging.basicConfig()
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('socketfeed')
 #logger = logging.getLogger('socketio')
 logger.setLevel(logging.DEBUG)
-
-#loop = asyncio.get_event_loop()
 
 
 class SocketFeed:
@@ -38,7 +36,7 @@ class SocketFeed:
 
         self.socket_url = f"{socket_uri}{socket_token}"
 
-    def run(self, chat_name, chat_avatar):
+    def run(self):
         # Socket.io Client
         sio = socketio.AsyncClient(
             logger=logger,
@@ -59,73 +57,49 @@ class SocketFeed:
 
         @sio.on('history')
         async def history_handler(data):
-            logger.debug(f'data: {data}')
-
-        """
-        var msg = {name:userObject["name"], text:textToSend, pic: userObject["img"], time:Date.now()};
-        socket.emit('chat message', msg);
-        """
-        # @sio.on('send')
-        # async def send_handler(message: str):
-        #    logger.debug(f"send message: {data}")
-
-        #    await sio.emit('send message', data['text'])
-
-        async def send_message(message):
-            logger.debug(f'message: {message}')
-
-            data = {
-                'name': chat_name,
-                'text': message,
-                'pic': chat_avatar,
-                'time': time.time()
-            }
-
-            logger.debug(f'data: {data}')
-
-            await sio.emit('chat message', data)
+            #logger.debug(f'data: {data}')
+            pass
 
         @sio.on('chat message')
         async def receive_handler(data):
-            logger.debug(f"chat message: {data}")
-            #print('[@sio.on(\"chat message\")] data:')
-            # pprint(data)
+            logger.debug(f'chat message: {data}')
 
             await message_consumer(data)
 
-        async def message_consumer(data):
-            data['time'] = datetime.datetime.fromtimestamp(data['time'] / 1000)
+        async def message_consumer(message):
+            # Generate hash from time before converting to datetime object
+            if message['isSuperChat'] is False:
+                hashable = message['socket']
 
-            data_serialized = json.loads(json.dumps(
-                data, separators=(', ', ': '), cls=NumpyEncoder))
+            else:
+                hashable = message['token']
 
-            insert_result = self.mongo_coll.insert_one(data)
+            message['hash'] = hash((hashable, message['time']))
+
+            msg_serialized = json.loads(json.dumps(
+                message, separators=(', ', ': '), cls=NumpyEncoder))
+
+            msg_serialized['time'] = datetime.datetime.fromtimestamp(
+                msg_serialized['time'] / 1000)
+
+            insert_result = self.mongo_coll.insert_one(msg_serialized)
+
             logger.debug(
                 f'insert_result.inserted_id: {insert_result.inserted_id}')
 
-        async def start_server(socket_url):
-            logger.debug('Entered start_server()')
+        async def start_feed(socket_url):
+            logger.debug('Entered start_feed()')
 
             await sio.connect(socket_url)
 
             logger.debug(f'Completed sio.connect(), sid={sio.sid}')
 
-        async def stop_server():
-            logger.debug('Entered stop_server()')
-
-            await sio.disconnect()
-
-            logger.debug('Completed sio.disconnect()')
-
         loop = asyncio.get_event_loop()
 
         try:
-            loop.run_until_complete(start_server(socket_url=self.socket_url))
+            loop.run_until_complete(start_feed(socket_url=self.socket_url))
 
             loop.run_forever()
-
-        except KeyboardInterrupt:
-            logger.info('Exit signal received.')
 
         except Exception as e:
             logger.exception(f'Unhandled exception: {e}')
@@ -137,7 +111,7 @@ class SocketFeed:
 if __name__ == '__main__':
     import configparser
 
-    config_path = 'config/settings.conf'
+    config_path = '../config/settings.conf'
 
     config = configparser.RawConfigParser()
     config.read(config_path)
@@ -150,7 +124,4 @@ if __name__ == '__main__':
         socket_token=config['socket.io']['token']
     )
 
-    socket_feed.run(
-        chat_name=config['socket.io']['name'],
-        chat_avatar=config['socket.io']['avatar']
-    )
+    socket_feed.run()

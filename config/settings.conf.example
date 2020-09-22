@@ -1,8 +1,6 @@
 [socket.io]
 uri = SOCKETIO_URI
 token = SOCKETIO_FRONTTOKEN_FROM_DEV_CONSOLE
-name = CHAT_USERNAME
-avatar = CHAT_AVATAR_URL
 
 [mongodb]
 uri = mongodb://localhost:27017

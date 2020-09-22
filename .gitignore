@@ -1,3 +1,5 @@
 env*/
 #env-master/
 config/settings.conf
+node_modules/
+.env
