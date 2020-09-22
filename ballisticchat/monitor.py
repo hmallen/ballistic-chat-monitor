@@ -4,6 +4,7 @@ import logging
 from pprint import pprint
 
 from pymongo import MongoClient
+import requests
 
 logging.basicConfig()
 logger = logging.getLogger('monitor')
@@ -23,6 +24,10 @@ class BallisticMonitor:
         mongo_db = mongo_client[config['mongodb']['db']]
         self.msg_coll = mongo_db[config['mongodb']['collection']]
         self.stats_coll = mongo_db[config['mongodb']['stats_collection']]
+
+        self.logstash_uri = config['logstash']['uri']
+        self.logstash_auth = (
+            config['logstash']['user'], config['logstash']['password'])
 
     def start_monitor(self):
 
@@ -44,8 +49,12 @@ class BallisticMonitor:
 
             agg_result = self.msg_coll.aggregate(pipeline=pipeline)
 
-            for result in agg_result:
-                pprint(result)
+            for doc in agg_result:
+                r = requests.post(
+                    self.logstash_uri,
+                    auth=self.logstash_auth,
+                    json=doc
+                )
 
         # watch_pipeline = [
         #    {'$match': {'fullDocument.pusherReady': {'$eq': True}}}]
