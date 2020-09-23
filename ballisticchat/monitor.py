@@ -50,11 +50,12 @@ class BallisticMonitor:
             agg_result = self.msg_coll.aggregate(pipeline=pipeline)
 
             for doc in agg_result:
-                r = requests.post(
+                """r = requests.post(
                     self.logstash_uri,
                     auth=self.logstash_auth,
                     json=doc
-                )
+                )"""
+                pprint(doc)
 
         # watch_pipeline = [
         #    {'$match': {'fullDocument.pusherReady': {'$eq': True}}}]
