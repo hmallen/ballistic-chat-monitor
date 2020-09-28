@@ -1,5 +1,9 @@
+#!../env/bin/python
+
 import configparser
+import datetime
 import logging
+from pprint import pprint
 
 from pymongo import MongoClient
 import requests
@@ -9,7 +13,8 @@ logger = logging.getLogger('dashboard')
 logger.setLevel(logging.DEBUG)
 
 
-class BallisticDashboard:
+class BallisticMonitor:
+
     def __init__(
         self,
         config_file
@@ -19,38 +24,76 @@ class BallisticDashboard:
 
         mongo_client = MongoClient(config['mongodb']['uri'])
         mongo_db = mongo_client[config['mongodb']['db']]
-        self.msg_coll = mongo_db[config['mongodb']['collection']]
-        self.stats_coll = mongo_db[config['mongodb']['stats_collection']]
 
-        self.logstash_uri = config['logstash']['uri']
-        self.logstash_auth = (
-            config['logstash']['user'], config['logstash']['password'])
+        self.dash_coll = mongo_db[config['mongodb']['dashboard_collection']]
 
-    def start_dashboard(self):
-        logger.info('Starting update monitor.')
+        self.dash_length = int(config['dashboard']['length'])
+        self.flag_threshold = int(config['dashboard']['flag_threshold'])
+
+    def start_monitor(self):
+
+        def print_dashboard(data):
+
+            def build_message(msg_list):
+                msg = f'\nFlagged Users (>={self.flag_threshold} msg/min):\n'
+                msg += ', '.join(msg_list)
+                # msg = msg.rstrip(', ')
+
+                return msg
+
+            print('------------ msg/min ------------\n')
+
+            user_doc = data['fullDocument']['users']
+
+            for x in range(0, (self.dash_length + 1)):
+                if x >= len(user_doc):
+                    print()
+
+                else:
+                    print(
+                        f"{str(user_doc[x]['count']).ljust(2, ' ')} - {user_doc[x]['name']}")
+
+                    if user_doc[x]['count'] >= self.flag_threshold:
+                        if user_doc[x]['name'] not in flagged_users:
+                            flagged_users.append(user_doc[x]['name'])
+
+            print(build_message(flagged_users))
+
+            print('\n---------------------------------\n')
+
+        logger.info('Starting dashboard monitor.')
+
+        flagged_users = []
 
         watch_pipeline = [{'$match': {'operationType': 'update'}}]
 
-        with self.msg_coll.watch(pipeline=watch_pipeline) as doc_stream:
+        with self.dash_coll.watch(pipeline=watch_pipeline, full_document='updateLookup') as doc_stream:
             for doc in doc_stream:
-                # update_stats(socket=doc['fullDocument']['socket'])
-                r = requests.post(
-                    self.logstash_uri,
-                    auth=self.logstash_auth,
-                    json=doc
-                )
+                # ['fullDocument']['users'].sorted(key='count'))
+                # pprint(doc['fullDocument']['users'])
+
+                print_dashboard(doc)
 
 
 if __name__ == '__main__':
-    config_path = '../config/settings.conf'
+    import argparse
 
-    dashboard = BallisticDashboard(config_file=config_path)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', '-c', type=str,
+                        default='../config/settings.conf')
+    args = parser.parse_args()
+    config_path = args.config
+
+    monitor = BallisticMonitor(config_file=config_path)
 
     try:
-        dashboard.start_dashboard()
+        monitor.start_monitor()
 
     except KeyboardInterrupt:
-        logger.info('Exit signal received.')
+        logger.info('Exit signal recieved.')
 
     except Exception as e:
         logger.exception(e)
+
+    finally:
+        logger.info('Exiting.')

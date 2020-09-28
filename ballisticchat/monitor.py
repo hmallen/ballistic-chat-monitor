@@ -1,3 +1,5 @@
+#!../env/bin/python
+
 import configparser
 import datetime
 import logging
@@ -22,12 +24,11 @@ class BallisticMonitor:
 
         mongo_client = MongoClient(config['mongodb']['uri'])
         mongo_db = mongo_client[config['mongodb']['db']]
+
         self.msg_coll = mongo_db[config['mongodb']['collection']]
         self.stats_coll = mongo_db[config['mongodb']['stats_collection']]
 
-        self.logstash_uri = config['logstash']['uri']
-        self.logstash_auth = (
-            config['logstash']['user'], config['logstash']['password'])
+        self.dashboard_collection = config['mongodb']['dashboard_collection']
 
     def start_monitor(self):
 
@@ -38,29 +39,23 @@ class BallisticMonitor:
 
             pipeline = [
                 {'$match': {'time': {'$gte': delta_min_ago}}},
-                {'$group': {'_id': '$name', 'count': {'$sum': 1}}},
-                {'$sort': {'count': 1}}
+                #    {'$group': {'_id': '$name', 'count': {'$sum': 1}}},
+                #    {'$sort': {'count': -1}},
+                {'$sortByCount': '$name'},
+                {'$group': {'_id': 'dashboard', 'users': {
+                    '$push': {'name': '$_id', 'count': '$count'}}}},
+                {'$merge': self.dashboard_collection}
             ]
-
-            # pipeline = [
-            #    {'$match': {'time': {'$gte': delta_min_ago}}},
-            #    {'$sortByCount': '$name'}
-            # ]
 
             agg_result = self.msg_coll.aggregate(pipeline=pipeline)
 
             for doc in agg_result:
-                """r = requests.post(
-                    self.logstash_uri,
-                    auth=self.logstash_auth,
-                    json=doc
+                """inserted_id = self.stats_coll.update_one(
+                    {'_id': doc['_id']},
+                    {'$set': doc},
+                    upsert=True
                 )"""
                 pprint(doc)
-
-        # watch_pipeline = [
-        #    {'$match': {'fullDocument.pusherReady': {'$eq': True}}}]
-        # with coll.watch(pipeline=watch_pipeline, full_document='updateLookup') as doc_stream:
-        #    pass
 
         logger.info('Starting update monitor.')
 
@@ -68,17 +63,19 @@ class BallisticMonitor:
 
         with self.msg_coll.watch(pipeline=watch_pipeline) as doc_stream:
             for doc in doc_stream:
-                # update_stats(socket=doc['fullDocument']['socket'])
                 update_stats()
-
-        #last_update = time.time()
-        # while True:
-        #    if time.time() - last_update >= 5:
-        #        update_stats()
 
 
 if __name__ == '__main__':
-    monitor = BallisticMonitor(config_file='../config/settings.conf')
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', '-c', type=str,
+                        default='../config/settings.conf')
+    args = parser.parse_args()
+    config_path = args.config
+
+    monitor = BallisticMonitor(config_file=config_path)
 
     try:
         monitor.start_monitor()

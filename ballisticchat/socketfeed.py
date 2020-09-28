@@ -1,3 +1,6 @@
+#!../env/bin/python
+
+import configparser
 import datetime
 import json
 import logging
@@ -17,24 +20,21 @@ logger = logging.getLogger('socketfeed')
 #logger = logging.getLogger('socketio')
 logger.setLevel(logging.DEBUG)
 
+config = configparser.RawConfigParser()
+
 
 class SocketFeed:
 
-    def __init__(
-        self,
-        mongo_uri,
-        mongo_db,
-        mongo_collection,
-        socket_uri,
-        socket_token
-    ):
+    def __init__(self, config_file):
+        config.read(config_file)
+
         # MongoDB Client
-        mongo_client = MongoClient(mongo_uri)
-        mongo_db = mongo_client[mongo_db]
+        mongo_client = MongoClient(config['mongodb']['uri'])
+        mongo_db = mongo_client[config['mongodb']['db']]
+        self.mongo_coll = mongo_db[config['mongodb']['collection']]
 
-        self.mongo_coll = mongo_db[mongo_collection]
-
-        self.socket_url = f"{socket_uri}{socket_token}"
+        # Socket.io Client
+        self.socket_url = f"{config['socket.io']['uri']}{config['socket.io']['token']}"
 
     def run(self):
         # Socket.io Client
@@ -96,32 +96,30 @@ class SocketFeed:
 
         loop = asyncio.get_event_loop()
 
-        try:
-            loop.run_until_complete(start_feed(socket_url=self.socket_url))
+        loop.run_until_complete(start_feed(socket_url=self.socket_url))
 
-            loop.run_forever()
-
-        except Exception as e:
-            logger.exception(f'Unhandled exception: {e}')
-
-        finally:
-            logger.info('Shutdown complete.')
+        loop.run_forever()
 
 
 if __name__ == '__main__':
-    import configparser
+    import argparse
 
-    config_path = '../config/settings.conf'
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', '-c', type=str,
+                        default='../config/settings.conf')
+    args = parser.parse_args()
+    config_path = args.config
 
-    config = configparser.RawConfigParser()
-    config.read(config_path)
+    socket_feed = SocketFeed(config_file=config_path)
 
-    socket_feed = SocketFeed(
-        mongo_uri=config['mongodb']['uri'],
-        mongo_db=config['mongodb']['db'],
-        mongo_collection=config['mongodb']['collection'],
-        socket_uri=config['socket.io']['uri'],
-        socket_token=config['socket.io']['token']
-    )
+    try:
+        socket_feed.run()
 
-    socket_feed.run()
+    except KeyboardInterrupt:
+        logger.info('Exit signal received.')
+
+    except Exception as e:
+        logger.exception(f'Unhandled exception: {e}')
+
+    # finally:
+    #    logger.info('Shutdown complete.')
