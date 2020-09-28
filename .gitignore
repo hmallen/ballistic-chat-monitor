@@ -3,4 +3,4 @@ env*/
 config/settings.conf
 node_modules/
 .env/
-.vscode/
+#.vscode/
