@@ -1,0 +1,39 @@
+[
+  {
+    "$unwind": {
+      "path": "$messages"
+    }
+  },
+  {
+    "$replaceRoot": {
+      "newRoot": {
+        "$mergeObjects": [
+          {
+            "name": "$$ROOT.name",
+            "pic": "$$ROOT.pic",
+            "pusherReady": "$$ROOT.pusherReady",
+            "superChatUpdate": "$$ROOT.superChatUpdate",
+            "updateReady": "$$ROOT.updateReady",
+            "locationSet": "$$ROOT.locationSet"
+          },
+          "$messages"
+        ]
+      }
+    }
+  },
+  {
+    "$project": {
+      "_id": 1,
+      "isSuperChat": 1,
+      "locationSet": 1,
+      "name": 1,
+      "pic": 1,
+      "pusherReady": 1,
+      "superChatUpdate": 1,
+      "updateReady": 1,
+      "time": 1,
+      "text": 1,
+      "location": 1
+    }
+  }
+]

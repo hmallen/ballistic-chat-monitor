@@ -1,0 +1,29 @@
+{
+  "name": "ballistic-dashboard",
+  "version": "0.0.1",
+  "description": "Monitor messages per minute for users in a Socket.io chat",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hmallen/ballistic-chat-monitor.git"
+  },
+  "author": "Hunter M. Allen <allenhm@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hmallen/ballistic-chat-monitor/issues"
+  },
+  "homepage": "https://github.com/hmallen/ballistic-chat-monitor#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "mongoose": "^5.10.6",
+    "socket.io": "^2.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.4"
+  }
+}
