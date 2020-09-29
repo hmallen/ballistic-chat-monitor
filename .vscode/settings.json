@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "/home/hunter/src/ballistic-chat-monitor/env/bin/python3.8",
+    "python.pythonPath": "env/bin/python",
     "git.ignoreLimitWarning": true,
     "eslint.enable": true
 }
