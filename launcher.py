@@ -1,15 +1,11 @@
-import configparser
+# import os
 import logging
 import subprocess
 import sys
 
-# from ballisticchat import socketfeed, monitor, dashboard
-
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
-config = configparser.RawConfigParser()
 
 
 def launch_modules():
@@ -21,35 +17,65 @@ def launch_modules():
 
     # Display dashboard in terminal
     #
-    socket_proc = subprocess.Popen(['./dashboard/socketfeed.py'])
-    monitor_proc = subprocess.Popen(['./dashboard/monitor.py'])
+    socket_proc = subprocess.Popen(
+        [
+            # "env/bin/python",
+            "home/hunter/src/ballistic-chat-monitor/ballisticchat/socketfeed.py",
+        ]
+    )
+    monitor_proc = subprocess.Popen(
+        [
+            # "env/bin/python",
+            "/home/hunter/src/ballistic-chat-monitor/ballisticchat/monitor.py",
+        ]
+    )
     dash_proc = subprocess.Popen(
-        ['./dashboard/dashboard.py'],
+        [
+            # "env/bin/python",
+            "/home/hunter/src/ballistic-chat-monitor/ballisticchat/dashboard.py",
+        ],
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.PIPE,
     )
 
     out, err = dash_proc.communicate()
-    #logger.debug(f'out: {out}')
-    #logger.debug(f'err: {err}')
+    # logger.debug(f'out: {out}')
+    # logger.debug(f'err: {err}')
 
 
-if __name__ == '__main__':
-    # import argparse
-
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('--config', '-c', type=str,
-    #                    default = './config/settings.conf')
-    # args = parser.parse_args()
-    # config_path = args.config
-
-    # config.read(config_path)
-
+if __name__ == "__main__":
     try:
-        launch_modules()
+        # launch_modules()
+
+        socket_proc = subprocess.Popen(
+            [
+                # "env/bin/python",
+                "home/hunter/src/ballistic-chat-monitor/ballisticchat/socketfeed.py"
+            ]
+        )
+
+        monitor_proc = subprocess.Popen(
+            [
+                # "env/bin/python",
+                "/home/hunter/src/ballistic-chat-monitor/ballisticchat/monitor.py"
+            ]
+        )
+
+        dash_proc = subprocess.Popen(
+            [
+                # "env/bin/python",
+                "/home/hunter/src/ballistic-chat-monitor/ballisticchat/dashboard.py"
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        out, err = dash_proc.communicate()
+
+        logger.debug("End of main try clause.")
 
     except KeyboardInterrupt:
-        logger.info('Exit signal received.')
+        logger.info("Exit signal received.")
         sys.exit()
 
     except Exception as e:

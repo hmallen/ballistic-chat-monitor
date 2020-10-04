@@ -5,4 +5,11 @@ token = SOCKETIO_FRONTTOKEN_FROM_DEV_CONSOLE
 [mongodb]
 uri = mongodb://localhost:27017
 db = ballistic-chat
-collection = monitor
+collection = ballistic-monitor
+stats_collection = ballistic-stats
+dashboard_collection = ballistic-dashboard
+flagged_collection = ballistic-flagged
+
+[dashboard]
+length = 15
+flagged_threshold = 45
