@@ -4,3 +4,5 @@ config/settings.conf
 node_modules/
 .env/
 #.vscode/
+ballisticchat/config/settings.conf
+resources/priv/

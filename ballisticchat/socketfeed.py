@@ -1,19 +1,20 @@
 #!env/bin/python
 
+import asyncio
 import configparser
 import datetime
 import json
 import logging
 import os
-from pprint import pprint
 import sys
 import time
+from pprint import pprint
 
-import asyncio
+import dateutil
+import signal
 import socketio
-
-from pymongo import MongoClient
 from numpyencoder import NumpyEncoder
+from pymongo import MongoClient
 
 # Move into directory of this running file
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -39,6 +40,8 @@ class SocketFeed:
         # Socket.io Client
         self.socket_url = f"{config['socket.io']['uri']}{config['socket.io']['token']}"
 
+        self.feed_active = True
+
     def run(self):
         # Socket.io Client
         sio = socketio.AsyncClient(logger=logger, engineio_logger=logger)
@@ -53,7 +56,9 @@ class SocketFeed:
         async def disconnect_handler():
             logger.info("Disconnected.")
 
-            loop.stop()
+            if self.feed_active is False:
+                logger.info("Stopping loop.")
+                loop.stop()
 
         @sio.on("history")
         async def history_handler(data):
@@ -84,6 +89,15 @@ class SocketFeed:
                 msg_serialized["time"] / 1000
             )
 
+            # Duplicated key/value + tzinfo to prevent breaking lookup of older versions
+            # msg_serialized["time_localized"] = datetime.datetime.fromtimestamp(
+            #    msg_serialized["time"] / 1000, tz=dateutil.tz.tzlocal()
+            # )
+
+            # msg_serialized["utc"] = msg_serialized["time_localized"].astimezone(
+            #    datetime.timezone.utc
+            # )
+
             insert_result = self.msg_coll.insert_one(msg_serialized)
 
             logger.debug(f"insert_result.inserted_id: {insert_result.inserted_id}")
@@ -95,11 +109,24 @@ class SocketFeed:
 
             logger.debug(f"Completed sio.connect(), sid={sio.sid}")
 
+        def stop_feed(self):
+            self.feed_active = False
+            logger.debug(f"self.feed_active: {self.feed_active}")
+
         loop = asyncio.get_event_loop()
 
-        loop.run_until_complete(start_feed(socket_url=self.socket_url))
+        loop.add_signal_handler(signal.SIGINT, stop_feed)
 
-        loop.run_forever()
+        try:
+            loop.run_until_complete(start_feed(socket_url=self.socket_url))
+
+            loop.run_forever()
+
+        except KeyboardInterrupt:
+            logger.info("Exit signal received.")
+
+        except Exception as e:
+            logger.exception(f"Unhandled exception: {e}")
 
 
 if __name__ == "__main__":
@@ -112,7 +139,9 @@ if __name__ == "__main__":
 
     socket_feed = SocketFeed(config_file=config_path)
 
-    try:
+    socket_feed.run()
+
+    """try:
         socket_feed.run()
 
     except KeyboardInterrupt:
@@ -122,4 +151,4 @@ if __name__ == "__main__":
         logger.exception(f"Unhandled exception: {e}")
 
     # finally:
-    #    logger.info('Shutdown complete.')
+    #    logger.info('Shutdown complete.')"""

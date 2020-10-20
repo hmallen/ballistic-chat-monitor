@@ -1,5 +1,6 @@
 #!env/bin/python
 
+import argparse
 import datetime
 import logging
 import os
@@ -16,11 +17,41 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 # Time in 24 hour format
-SHOW_TIME = "00:15"
+SHOW_TIME = "06:15"
 
 MONGO_URI = "mongodb://127.0.0.1:27017"
 MONGO_DB = "ballistic-chat"
 MONGO_COLL = "ballistic-messages"
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "-t",
+    "--time",
+    default=SHOW_TIME,
+    help="Use altername show start time.",
+)
+parser.add_argument(
+    "-f",
+    "--first",
+    help="First show date (mm/dd/yyyy)",
+)
+parser.add_argument(
+    "-l",
+    "--last",
+    help="Last show date if returning range (mm/dd/yyyy)",
+)
+parser.add_argument(
+    "-u",
+    "--users",
+    help="Comma separated list of users for message dump.",
+)
+parser.add_argument(
+    "-y",
+    "--yes",
+    action="store_true",
+    help="Skip confirmation and immediately proceed with message dump.",
+)
+args = parser.parse_args()
 
 
 def query_user():
@@ -28,21 +59,32 @@ def query_user():
 
     selections = {}
 
-    tz_cest = datetime.timezone(datetime.timedelta(hours=2), name="CEST")
+    tz_query = datetime.timezone(datetime.timedelta(hours=2), name="CEST")
+    # tz_query = datetime.timezone.utc
 
     # NEED TO IMPLEMENT ALTERNATE WEEKEND SHOWTIME START OF 11AM CEST
-    if input("\nUse standard show start time? [Y/n] ") == "n":
+    if args.time:
+        time_input = args.time
+
+    elif input("\nUse standard show start time? [Y/n] ") == "n":
         time_input = input("\nInput custom show start time in 24 hour format (hh:mm): ")
-        time_formatted = datetime.time(
-            hour=time_input.split(":")[0],
-            minute=time_input.split(":")[1],
-            tzinfo=tz_cest,
-        )
 
     else:
-        time_formatted = datetime.time(hour=8, minute=15, tzinfo=tz_cest)
+        time_input = SHOW_TIME
 
-    date_input = input("\nFirst episode (mm/dd/yyyy): ")
+    time_split = time_input.split(":")
+
+    time_formatted = datetime.time(
+        hour=int(time_split[0]),
+        minute=int(time_split[1]),
+        tzinfo=tz_query,
+    )
+
+    if args.first:
+        date_input = args.first
+
+    else:
+        date_input = input("\nFirst episode (mm/dd/yyyy): ")
 
     date_split = date_input.split("/")
 
@@ -57,7 +99,10 @@ def query_user():
         time=time_formatted,
     )
 
-    if input("\nChoose range of episodes? [y/N] ") == "y":
+    if args.last:
+        date_input = args.last
+
+    elif input("\nChoose range of episodes? [y/N] ") == "y":
         date_input = input("\nLast episode (mm/dd/yyyy): ")
 
         date_split = date_input.split("/")
@@ -77,25 +122,39 @@ def query_user():
         print(f'\nSelecting only single episode. {selections["dt_first"]}')
         selections["dt_last"] = None
 
-    if input("\nSelect specific users? [y/N] ") == "y":
+    if args.users:
+        user_list = args.users
+
+    elif input("\nSelect specific users? [y/N] ") == "y":
+        user_list = input("\nComma-separated list of users: ")
+
+    else:
+        print(f"\nDumping messages for all users.")
+        user_list = None
+
+    if user_list:
         selections["selected_users"] = [
-            user.strip(" ")
-            for user in input("\nComma-separated list of users: ").split(",")
+            user.strip(" ") for user in user_list.split(",")
         ]
 
         print("\nSelected the following users for message dump:")
         [print(user) for user in selections["selected_users"]]
 
     else:
-        print(f"\nDumping messages for all users.")
         selections["selected_users"] = None
 
-    if input("\nAre these selections correct? [Y/n]") == "n":
-        sys.exit()
+    if not args.yes:
+        if input("\nAre these selections correct? [Y/n]") == "n":
+            sys.exit()
+
+        else:
+            print("\nSelections confirmed.")
 
     selections["dump_start"] = selections["dt_first"] - datetime.timedelta(minutes=15)
+
     if selections["dt_last"]:
         selections["dump_end"] = selections["dt_last"] + datetime.timedelta(minutes=120)
+
     else:
         selections["dump_end"] = selections["dump_start"] + datetime.timedelta(
             minutes=120
@@ -105,13 +164,26 @@ def query_user():
 
 
 if __name__ == "__main__":
-    data_choices = query_user()
+    try:
+        data_choices = query_user()
+
+    except KeyboardInterrupt:
+        logger.info("Exit signal received.")
+        sys.exit()
+
+    except Exception as e:
+        logger.exception(e)
+        sys.exit(1)
 
     pprint(data_choices)
 
     client = MongoClient(MONGO_URI)
     db = client[MONGO_DB]
     coll = db[MONGO_COLL]
+
+    #############################
+    # ADD PIPELINE APPEND STEPS #
+    #############################
 
     pipeline = [
         {
@@ -140,5 +212,9 @@ if __name__ == "__main__":
 
     agg_result = coll.aggregate(pipeline=pipeline)
 
+    doc_count = agg_result.count_documents()
+
     for doc in agg_result:
         pprint(doc)
+
+    print(f"\ndoc_count: {doc_count}")
