@@ -5,6 +5,7 @@ import datetime
 import logging
 import os
 from pprint import pprint
+import time
 
 # import requests
 from pymongo import MongoClient
@@ -65,8 +66,14 @@ class BallisticMonitor:
         watch_pipeline = [{"$match": {"operationType": "insert"}}]
 
         with self.msg_coll.watch(pipeline=watch_pipeline) as doc_stream:
-            for doc in doc_stream:
-                update_stats()
+            if doc_stream:
+                for doc in doc_stream:
+                    update_stats()
+
+                hb_result = self.stats_coll.update_one(
+                    {"_id": "heartbeat"}, {"monitor_last": time.time()}, upsert=True
+                )
+                logger.debug(f"hb_result.modified_count: {hb_result.modified_count}")
 
 
 if __name__ == "__main__":

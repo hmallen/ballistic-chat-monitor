@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 # Time in 24 hour format
-SHOW_TIME = "06:15"
+SHOW_TIME = "00:15"
 
 MONGO_URI = "mongodb://127.0.0.1:27017"
 MONGO_DB = "ballistic-chat"
@@ -201,20 +201,25 @@ if __name__ == "__main__":
                 "text": 1,
                 # "pic": 0,
                 "time": 1,
-                "socket": 1,
-                "role": 1,
+                # "socket": 1,
+                # "role": 1,
                 # "connectedUsers": 0,
-                "isSuperChat": 1,
-                "hash": 1,
+                # "isSuperChat": 1,
+                # "hash": 1,
             }
         },
     ]
 
     agg_result = coll.aggregate(pipeline=pipeline)
 
-    doc_count = agg_result.count_documents()
+    # doc_count = len(agg_result)
 
-    for doc in agg_result:
-        pprint(doc)
+    with open("chat_111120_geb.jsonl", "a+") as dump_file:
+        for cnt, doc in enumerate(agg_result):
+            doc["time"] = datetime.datetime.isoformat(doc["time"])
 
-    print(f"\ndoc_count: {doc_count}")
+            dump_file.write(f"{doc}\n")
+
+            print(f"{cnt} - {doc}")
+
+    # print(f"\ndoc_count: {doc_count}")

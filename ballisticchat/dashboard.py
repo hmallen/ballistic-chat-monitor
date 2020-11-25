@@ -26,6 +26,7 @@ class BallisticMonitor:
         mongo_db = mongo_client[config["mongodb"]["db"]]
 
         self.dash_coll = mongo_db[config["mongodb"]["dashboard_collection"]]
+        self.stats_coll = mongo_db[config["mongodb"]["stats_collection"]]
 
         self.dash_length = int(config["dashboard"]["length"])
         self.flagged_threshold = int(config["dashboard"]["flagged_threshold"])

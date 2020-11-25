@@ -36,6 +36,7 @@ class SocketFeed:
         mongo_client = MongoClient(config["mongodb"]["uri"])
         mongo_db = mongo_client[config["mongodb"]["db"]]
         self.msg_coll = mongo_db[config["mongodb"]["message_collection"]]
+        self.stats_coll = mongo_db[config["mongodb"]["stats_collection"]]
 
         # Socket.io Client
         self.socket_url = f"{config['socket.io']['uri']}{config['socket.io']['token']}"
@@ -64,6 +65,14 @@ class SocketFeed:
         async def history_handler(data):
             # logger.debug(f'data: {data}')
             pass
+
+        @sio.on("pong")
+        async def pong_handler(data):
+            logger.debug("Sending heartbeat.")
+            hb_result = self.stats_coll.update_one(
+                {"_id": "heartbeat"}, {"socketfeed": time.time()}, upsert=True
+            )
+            logger.debug(f"hb_result.modified_count: {hb_result.modified_count}")
 
         @sio.on("chat message")
         async def receive_handler(data):
